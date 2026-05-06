@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>通知テスト</title>
+  </head>
+  <body>
+    <h2>ブラウザ通知テスト</h2>
+    <button onclick="requestAndShowNotification()">通知を許可して表示</button>
+
+    <script>
+      function requestAndShowNotification() {
+        // 1. ブラウザが通知に対応しているか確認
+        if (!("Notification" in window)) {
+          alert("このブラウザは通知に対応していません");
+          return;
+        }
+
+        // 2. 通知の許可をリクエスト
+        Notification.requestPermission().then((permission) => {
+          console.log("現在の権限:", permission);
+
+          if (permission === "granted") {
+            // 3. 実際に通知を表示
+            const notification = new Notification("テスト通知", {
+              body: "これはブラウザからの直接通知テストです。",
+              icon: "https://www.google.com/favicon.ico",
+            });
+
+            notification.onclick = () => {
+              alert("通知がクリックされました！");
+              window.focus();
+            };
+          } else {
+            alert(
+              "通知が拒否されています。権限をリセットしてください。 状態: " +
+                permission,
+            );
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

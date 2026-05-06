@@ -1,136 +1,64 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>通知テスト (Pixel確認用)</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel通知テスト(完結版)</title>
     <style>
-      body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        padding: 20px;
-        background-color: #f5f5f5;
-        line-height: 1.6;
-      }
-      .container {
-        max-width: 500px;
-        margin: 0 auto;
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      }
-      h2 {
-        margin-top: 0;
-        color: #333;
-      }
-      button {
-        width: 100%;
-        padding: 15px;
-        font-size: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        background-color: #1a73e8;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        margin-bottom: 20px;
-      }
-      button:active {
-        background-color: #1557b0;
-      }
-      #log-container {
-        background: #202124;
-        color: #00ff00;
-        padding: 15px;
-        border-radius: 8px;
-        font-family: monospace;
-        font-size: 13px;
-        min-height: 150px;
-        overflow-y: auto;
-      }
-      .log-entry {
-        margin-bottom: 5px;
-        border-bottom: 1px solid #3c4043;
-        padding-bottom: 2px;
-      }
-      .error {
-        color: #ff6b6b;
-      }
-      .success {
-        color: #81c995;
-      }
+        body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        button { width: 100%; padding: 15px; font-size: 16px; background: #1a73e8; color: white; border: none; border-radius: 8px; }
+        #log { margin-top: 20px; background: #202124; color: #00ff00; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
     </style>
-  </head>
-  <body>
-    <div class="container">
-      <h2>通知テスト</h2>
-      <p>下のボタンを押して、このデバイスでの通知挙動を確認します。</p>
+</head>
+<body>
 
-      <button onclick="executeNotificationTest()">通知をテスト実行</button>
+<div class="container">
+    <h2>Android対応通知テスト</h2>
+    <button onclick="runAndroidTest()">通知をテスト実行</button>
+    <div id="log">ログ待機中...</div>
+</div>
 
-      <div id="log-container">
-        <div class="log-entry">--- ログ待機中 ---</div>
-      </div>
-    </div>
+<script>
+    const logDiv = document.getElementById('log');
+    function addLog(msg) { logDiv.innerText += "\n" + msg; }
 
-    <script>
-      const logContainer = document.getElementById("log-container");
+    async function runAndroidTest() {
+        addLog("--- テスト開始 ---");
 
-      function addLog(message, type = "") {
-        const entry = document.createElement("div");
-        entry.className = "log-entry " + type;
-        const time = new Date().toLocaleTimeString();
-        entry.innerText = `[${time}] ${message}`;
-        logContainer.prepend(entry); // 新しいログを上に表示
-      }
+        // 1. 権限リクエスト
+        const permission = await Notification.requestPermission();
+        addLog("権限状態: " + permission);
 
-      async function executeNotificationTest() {
-        addLog("テストを開始しました...");
-
-        // 1. ブラウザのサポート確認
-        if (!("Notification" in window)) {
-          addLog("エラー: このブラウザは通知をサポートしていません", "error");
-          return;
+        if (permission !== "granted") {
+            addLog("エラー: 通知が許可されていません");
+            return;
         }
-        addLog("ブラウザのサポート: OK");
 
-        // 2. 現在の権限状態を確認
-        addLog("現在の権限状態: " + Notification.permission);
-
+        // 2. Service Workerの登録 (Androidで必須)
         try {
-          // 3. 権限をリクエスト
-          const permission = await Notification.requestPermission();
-          addLog(
-            "リクエスト後の権限: " + permission,
-            permission === "granted" ? "success" : "error",
-          );
+            addLog("Service Workerを登録中...");
+            // インラインでService Workerを生成
+            const swCode = `self.addEventListener('notificationclick', e => e.notification.close());`;
+            const blob = new Blob([swCode], {type: 'text/javascript'});
+            const swUrl = URL.createObjectURL(blob);
+            
+            const registration = await navigator.serviceWorker.register(swUrl);
+            addLog("SW登録成功。通知を発行します...");
 
-          if (permission === "granted") {
-            addLog("通知オブジェクトを作成します...");
-
-            // 4. 通知を送信
-            const notification = new Notification("テスト通知", {
-              body:
-                "Pixel 6a での受信テストです。\n時刻: " +
-                new Date().toLocaleTimeString(),
-              icon: "https://www.google.com/favicon.ico",
-              tag: "test-tag", // 重複を防ぐタグ
+            // 3. Service Worker経由で通知を表示
+            await registration.showNotification("Pixelテスト通知", {
+                body: "Androidの制約をクリアしました！",
+                icon: "https://www.google.com/favicon.ico",
+                badge: "https://www.google.com/favicon.ico"
             });
-
-            notification.onclick = () => {
-              addLog("通知がクリックされました！", "success");
-              window.focus();
-            };
-
-            addLog("通知を送信しました。画面に表示されるか確認してください。");
-          } else {
-            addLog("通知が拒否されました。設定のリセットが必要です。", "error");
-          }
+            
+            addLog("成功: 通知命令を送信しました！");
         } catch (err) {
-          addLog("例外エラー発生: " + err.message, "error");
+            addLog("致命的エラー: " + err.message);
         }
-      }
-    </script>
-  </body>
+    }
+</script>
+
+</body>
 </html>
